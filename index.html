@@ -10,19 +10,17 @@
 
 <main class="intro-root" id="introRoot">
 
-  <!-- Your panel mapping stays in styles.css. Do NOT change filenames here. -->
-  <section class="panel" data-panel="1"></section> <!-- 01-hospital-night.webp -->
+  <section class="panel" data-panel="1"></section>
   <section class="panel" data-panel="2"></section>
   <section class="panel" data-panel="3"></section>
   <section class="panel" data-panel="4"></section>
-  <section class="panel" data-panel="5"></section> <!-- 05-suspense.webp -->
+  <section class="panel" data-panel="5"></section>
 
-  <section class="panel kinetic" data-panel="6"></section> <!-- flatline -->
-  <section class="panel" data-panel="7"></section>         <!-- burnout -->
-  <section class="panel" data-panel="8"></section>         <!-- icu -->
-  <section class="panel kinetic" data-panel="9"></section> <!-- hallway run -->
+  <section class="panel kinetic" data-panel="6"></section>
+  <section class="panel" data-panel="7"></section>
+  <section class="panel" data-panel="8"></section>
+  <section class="panel kinetic" data-panel="9"></section>
 
-  <!-- overlays -->
   <div class="light-overlay" id="lightOverlay"></div>
   <div class="vignette"></div>
 
@@ -40,16 +38,12 @@
   const overlay = document.getElementById('lightOverlay');
   const titleCard = document.getElementById('titleCard');
 
-  // Helper: map data-panel="N" -> element
   const byId = (n) => panels.find(p => p.dataset.panel === String(n));
-
-  // Define which panels are "kinetic" (stronger ambulance lights + blur pulse)
   const kineticSet = new Set([6, 9]);
 
-  // Interweave order: anchors appear repeatedly to keep the "show intro" feel
-  // (Hospital night + suspense are your anchors)
+  // Interwoven montage: anchors (1,5) keep returning, ER shots punch in between
   const order = [
-    1, 9, 2, 6, 3, 8, 4, 7, 5,
+    9, 1, 6, 2, 8, 3, 4, 7, 5,
     1, 6, 2, 9, 3, 8, 5
   ];
 
@@ -61,12 +55,8 @@
     const el = byId(panelNum);
     if (el) el.classList.add('active');
 
-    // Make ambulance lights stronger only on kinetic scenes
-    if (kineticSet.has(panelNum)) {
-      overlay.classList.add('hot');
-    } else {
-      overlay.classList.remove('hot');
-    }
+    if (kineticSet.has(panelNum)) overlay.classList.add('hot');
+    else overlay.classList.remove('hot');
   }
 
   function next() {
@@ -79,7 +69,6 @@
     timer = setInterval(next, 8000);
   }
 
-  // Init
   setActive(order[0]);
   startLoop();
 
