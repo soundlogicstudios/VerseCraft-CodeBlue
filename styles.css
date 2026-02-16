@@ -100,3 +100,8 @@ button:hover {
 .fade-out {
   opacity: 0;
 }
+/* Stronger ambulance lights only during kinetic scenes */
+.light-overlay.hot {
+  opacity: 0.45;
+  animation-duration: 3.2s;
+}
