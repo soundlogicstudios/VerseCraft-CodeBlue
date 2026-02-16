@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>Code Blue – Season One</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+<main id="introRoot" class="intro-root">
+
+  <div class="panel active" id="panel1">
+    <div class="overlay">
+      <h1>St. Aurelius Medical Center</h1>
+      <p>For Sale.</p>
+    </div>
+  </div>
+
+  <div class="panel" id="panel2">
+    <div class="overlay">
+      <h1>Dr. Adrian Cole</h1>
+      <p>Trying to prove he belongs.</p>
+    </div>
+  </div>
+
+  <div class="panel" id="panel3">
+    <div class="overlay">
+      <h1>Dr. Celeste Marlowe</h1>
+      <p>Trying not to lose what she built.</p>
+    </div>
+  </div>
+
+  <div class="panel" id="panel4">
+    <div class="overlay">
+      <h1>Everyone Wants Something.</h1>
+    </div>
+  </div>
+
+  <div class="panel" id="panel5">
+    <div class="overlay">
+      <h1>And Someone Is Hiding Something.</h1>
+    </div>
+  </div>
+
+  <div class="title-card">
+    <h2>CODE BLUE</h2>
+    <button id="startBtn">START</button>
+  </div>
+
+</main>
+
+<script>
+  const panels = document.querySelectorAll('.panel');
+  let current = 0;
+
+  function cyclePanels() {
+    panels[current].classList.remove('active');
+    current = (current + 1) % panels.length;
+    panels[current].classList.add('active');
+  }
+
+  setInterval(cyclePanels, 8000);
+
+  document.getElementById('startBtn').addEventListener('click', () => {
+    document.querySelector('.title-card').classList.add('fade-out');
+  });
+</script>
+
+</body>
+</html>
