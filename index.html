@@ -10,7 +10,15 @@
 
 <main class="intro-root" id="introRoot">
 
-  <!-- INTRO PANELS (backgrounds mapped in styles.css) -->
+  <!-- SPLASH (FIRST SCREEN) -->
+  <section class="splash" id="splash" aria-label="Splash Screen">
+    <div class="splash-ui">
+      <button class="splash-btn" id="enterBtn" type="button">ENTER</button>
+      <div class="splash-hint">Tap to begin</div>
+    </div>
+  </section>
+
+  <!-- INTRO PANELS -->
   <section class="panel" data-panel="1"></section>
   <section class="panel" data-panel="2"></section>
   <section class="panel" data-panel="3"></section>
@@ -26,21 +34,22 @@
   <div class="light-overlay" id="lightOverlay"></div>
   <div class="vignette"></div>
 
-  <!-- TITLE CARD -->
-  <div class="title-card" id="titleCard">
+  <!-- TITLE CARD (APPEARS AFTER SPLASH ENTER) -->
+  <div class="title-card" id="titleCard" hidden>
     <div class="title">CODE BLUE</div>
     <div class="subtitle">Season One</div>
-    <button id="startBtn" type="button">START</button>
+    <button id="startBtn" type="button">TAP TO START</button>
   </div>
 
-  <!-- CHARACTER SELECT (hidden until START) -->
+  <!-- CHARACTER SELECT (hidden until TITLE CARD tap) -->
   <section class="character-select" id="characterSelect" hidden aria-label="Choose your character">
     <div class="cs-ui">
       <div class="cs-title">Choose Your Character</div>
 
+      <!-- Left = Celeste, Right = Adrian -->
       <div class="cs-buttons">
-        <button class="cs-btn" id="chooseAdrian" type="button">Dr. Adrian Cole</button>
-        <button class="cs-btn" id="chooseCeleste" type="button">Dr. Celeste Marlowe</button>
+        <button class="cs-btn left"  id="chooseCeleste" type="button">Dr. Celeste Marlowe</button>
+        <button class="cs-btn right" id="chooseAdrian"  type="button">Dr. Adrian Cole</button>
       </div>
 
       <button class="cs-start" id="startShiftBtn" type="button" disabled>Start Shift</button>
@@ -48,7 +57,7 @@
     </div>
   </section>
 
-  <!-- THEME MUSIC (plays on START click) -->
+  <!-- THEME MUSIC -->
   <audio id="themeAudio" preload="auto" loop>
     <source src="./assets/audio/code_blue_theme.mp3" type="audio/mpeg">
   </audio>
@@ -57,25 +66,31 @@
 
 <script>
 (() => {
+  const root = document.getElementById('introRoot');
+
+  const splash = document.getElementById('splash');
+  const enterBtn = document.getElementById('enterBtn');
+
   const panels = Array.from(document.querySelectorAll('.panel'));
   const overlay = document.getElementById('lightOverlay');
+
   const titleCard = document.getElementById('titleCard');
+  const startBtn = document.getElementById('startBtn');
 
   const characterSelect = document.getElementById('characterSelect');
   const themeAudio = document.getElementById('themeAudio');
 
-  const chooseAdrian = document.getElementById('chooseAdrian');
   const chooseCeleste = document.getElementById('chooseCeleste');
+  const chooseAdrian  = document.getElementById('chooseAdrian');
   const startShiftBtn = document.getElementById('startShiftBtn');
   const csNote = document.getElementById('csNote');
 
   const byId = (n) => panels.find(p => p.dataset.panel === String(n));
 
-  // Panels that should have ambulance flashes.
-  // Keep your existing ones + include panel 1.
+  // Flashing panels (keep your existing + include 1)
   const flashSet = new Set([1, 6, 9]);
 
-  // Interwoven intro sequence
+  // Montage order (unchanged)
   const order = [
     9, 1, 6, 2, 8, 3, 4, 7, 5,
     1, 6, 2, 9, 3, 8, 5
@@ -83,6 +98,7 @@
 
   let idx = 0;
   let timer = null;
+  let montageStarted = false;
   let selected = null;
 
   function setActive(panelNum) {
@@ -109,42 +125,66 @@
     timer = null;
   }
 
-  // Init montage
+  // Initial state: show a static first frame behind splash (no loop yet)
   setActive(order[0]);
-  startLoop();
+  stopLoop();
 
-  // START -> stop montage, show character select, play theme
-  document.getElementById('startBtn').addEventListener('click', async () => {
+  async function startMontageAndMusic() {
+    if (montageStarted) return;
+    montageStarted = true;
+
+    // show title card now that the montage is live
+    titleCard.hidden = false;
+
+    // begin montage
+    startLoop();
+
+    // start theme music (allowed because user clicked)
+    try {
+      themeAudio.volume = 0.85;
+      await themeAudio.play();
+    } catch (_) {}
+  }
+
+  // SPLASH ENTER -> start music + slideshow + reveal title card
+  enterBtn.addEventListener('click', async () => {
+    await startMontageAndMusic();
+
+    // fade splash out and remove it
+    splash.classList.add('fade-out');
+    setTimeout(() => {
+      splash.hidden = true;
+    }, 450);
+  });
+
+  // TITLE CARD TAP -> go to character select (do not restart music/montage)
+  startBtn.addEventListener('click', () => {
     stopLoop();
     titleCard.classList.add('fade-out');
+    root.classList.add('show-character-select');
 
-    // show character select on a slight beat (feels intentional)
+    // show character select
     setTimeout(() => {
       characterSelect.hidden = false;
       characterSelect.classList.add('show');
     }, 250);
-
-    // iOS audio unlock via user gesture (this click)
-    try {
-      themeAudio.volume = 0.85;
-      await themeAudio.play();
-    } catch (_) {
-      // If blocked, it’s still wired. Next user tap will allow play.
-    }
   });
 
   function setSelected(which) {
     selected = which;
-    chooseAdrian.classList.toggle('active', which === 'adrian');
     chooseCeleste.classList.toggle('active', which === 'celeste');
+    chooseAdrian.classList.toggle('active', which === 'adrian');
+
     startShiftBtn.disabled = !selected;
-    csNote.textContent = selected ? `Selected: ${which === 'adrian' ? 'Dr. Adrian Cole' : 'Dr. Celeste Marlowe'}` : 'Select a character to begin.';
+    csNote.textContent = selected
+      ? `Selected: ${which === 'celeste' ? 'Dr. Celeste Marlowe' : 'Dr. Adrian Cole'}`
+      : 'Select a character to begin.';
   }
 
-  chooseAdrian.addEventListener('click', () => setSelected('adrian'));
   chooseCeleste.addEventListener('click', () => setSelected('celeste'));
+  chooseAdrian.addEventListener('click', () => setSelected('adrian'));
 
-  // Stub hook (replace later with your story start routing)
+  // Stub hook for now
   startShiftBtn.addEventListener('click', () => {
     if (!selected) return;
     alert(`Start Shift (stub) — POV: ${selected}`);
