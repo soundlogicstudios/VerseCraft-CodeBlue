@@ -1,3 +1,5 @@
+/* FULL FILE REPLACEMENT: styles.css */
+
 * {
   margin: 0;
   padding: 0;
@@ -48,51 +50,62 @@ html, body {
   100% { filter: blur(0px); }
 }
 
-/* Background Assignments (YOU ALREADY HAVE THESE) */
+/* Background Assignments */
 .panel[data-panel="1"] { background-image: url('./assets/backgrounds/intro/01-hospital-night.webp'); }
 .panel[data-panel="2"] { background-image: url('./assets/backgrounds/intro/02-adrian.webp'); }
 .panel[data-panel="3"] { background-image: url('./assets/backgrounds/intro/03-celeste.webp'); }
 .panel[data-panel="4"] { background-image: url('./assets/backgrounds/intro/04-staff.webp'); }
 .panel[data-panel="5"] { background-image: url('./assets/backgrounds/intro/05-suspense.webp'); }
 
-/* IMPORTANT: You were missing these, so panels 6–9 went black */
 .panel[data-panel="6"] { background-image: url('./assets/backgrounds/intro/06-flatline.webp'); }
 .panel[data-panel="7"] { background-image: url('./assets/backgrounds/intro/07-burnout.webp'); }
 .panel[data-panel="8"] { background-image: url('./assets/backgrounds/intro/08-icu.webp'); }
 .panel[data-panel="9"] { background-image: url('./assets/backgrounds/intro/09-hallway.webp'); }
 
-/* Ambulance light overlay (you were missing the base class entirely) */
+/* Ambulance light overlay (flashy, not smooth sweep) */
 .light-overlay {
   position: absolute;
   inset: 0;
   pointer-events: none;
   mix-blend-mode: screen;
-  opacity: 0.18;
-  animation: lightSweep 5s linear infinite;
+  opacity: 0;               /* off by default */
+  background: transparent;
 }
 
-@keyframes lightSweep {
-  0% {
-    background: linear-gradient(
-      90deg,
-      rgba(255, 0, 0, 0.32),
-      transparent 50%,
-      rgba(0, 120, 255, 0.32)
-    );
-    transform: translateX(-100%);
-  }
-  100% {
-    transform: translateX(100%);
-  }
-}
-
-/* Stronger ambulance lights only during kinetic scenes */
+/* Turn on + flash during kinetic scenes */
 .light-overlay.hot {
-  opacity: 0.45;
-  animation-duration: 3.2s;
+  opacity: 1;
+  animation: ambulanceFlash 1.25s linear infinite;
 }
 
-/* Vignette (you were missing this too) */
+/* Red/blue alternating flashes with short “dead” gaps */
+@keyframes ambulanceFlash {
+  /* RED flash */
+  0%   { background: rgba(255, 0, 0, 0.00); }
+  6%   { background: rgba(255, 0, 0, 0.32); }
+  14%  { background: rgba(255, 0, 0, 0.06); }
+  20%  { background: rgba(255, 0, 0, 0.00); }
+
+  /* small gap */
+  28%  { background: rgba(0, 0, 0, 0.00); }
+
+  /* BLUE flash */
+  34%  { background: rgba(0, 120, 255, 0.00); }
+  40%  { background: rgba(0, 120, 255, 0.30); }
+  48%  { background: rgba(0, 120, 255, 0.06); }
+  54%  { background: rgba(0, 120, 255, 0.00); }
+
+  /* longer gap to feel like rotating bar */
+  70%  { background: rgba(0, 0, 0, 0.00); }
+
+  /* quick RED double-tap */
+  76%  { background: rgba(255, 0, 0, 0.22); }
+  82%  { background: rgba(255, 0, 0, 0.00); }
+
+  100% { background: rgba(0, 0, 0, 0.00); }
+}
+
+/* Vignette */
 .vignette {
   position: absolute;
   inset: 0;
@@ -142,4 +155,5 @@ button:hover {
 
 .fade-out {
   opacity: 0;
+}
 }
