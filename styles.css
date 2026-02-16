@@ -1,0 +1,95 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body, html {
+  width: 100%;
+  height: 100%;
+  background: #000;
+  font-family: "Helvetica Neue", Arial, sans-serif;
+  color: white;
+  overflow: hidden;
+}
+
+.intro-root {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.panel {
+  position: absolute;
+  width: 110%;
+  height: 110%;
+  top: -5%;
+  left: -5%;
+  background-size: cover;
+  background-position: center;
+  opacity: 0;
+  transition: opacity 3s ease-in-out, transform 15s linear;
+  transform: scale(1);
+}
+
+.panel.active {
+  opacity: 1;
+  transform: scale(1.05);
+}
+
+/* Placeholder backgrounds */
+#panel1 { background-image: url('assets/hospital_night.jpg'); }
+#panel2 { background-image: url('assets/adrian.jpg'); }
+#panel3 { background-image: url('assets/celeste.jpg'); }
+#panel4 { background-image: url('assets/hospital_staff.jpg'); }
+#panel5 { background-image: url('assets/suspense_detail.jpg'); }
+
+.overlay {
+  position: absolute;
+  bottom: 15%;
+  left: 10%;
+  max-width: 600px;
+}
+
+.overlay h1 {
+  font-size: 2.5rem;
+  letter-spacing: 2px;
+  margin-bottom: 10px;
+}
+
+.overlay p {
+  font-size: 1.2rem;
+  opacity: 0.8;
+}
+
+.title-card {
+  position: absolute;
+  bottom: 10%;
+  right: 10%;
+  text-align: right;
+  transition: opacity 1s ease;
+}
+
+.title-card h2 {
+  font-size: 3rem;
+  margin-bottom: 20px;
+}
+
+.title-card button {
+  background: transparent;
+  border: 2px solid white;
+  color: white;
+  padding: 10px 30px;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background 0.3s ease;
+}
+
+.title-card button:hover {
+  background: white;
+  color: black;
+}
+
+.fade-out {
+  opacity: 0;
+}
