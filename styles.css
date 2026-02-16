@@ -1,5 +1,3 @@
-/* FULL FILE REPLACEMENT: styles.css */
-
 * {
   margin: 0;
   padding: 0;
@@ -39,14 +37,14 @@ html, body {
   transform: scale(1.06);
 }
 
-/* Kinetic (ER action) gets subtle blur pulse */
+/* Kinetic blur pulse */
 .panel.kinetic.active {
   animation: blurPulse 6s ease-in-out infinite;
 }
 
 @keyframes blurPulse {
-  0% { filter: blur(0px); }
-  50% { filter: blur(1.4px); }
+  0%   { filter: blur(0px); }
+  50%  { filter: blur(1.4px); }
   100% { filter: blur(0px); }
 }
 
@@ -62,45 +60,36 @@ html, body {
 .panel[data-panel="8"] { background-image: url('./assets/backgrounds/intro/08-icu.webp'); }
 .panel[data-panel="9"] { background-image: url('./assets/backgrounds/intro/09-hallway.webp'); }
 
-/* Ambulance light overlay (flashy, not smooth sweep) */
+/* Ambulance light overlay (works when JS toggles .hot) */
 .light-overlay {
   position: absolute;
   inset: 0;
   pointer-events: none;
   mix-blend-mode: screen;
-  opacity: 0;               /* off by default */
+  opacity: 0;
   background: transparent;
 }
 
-/* Turn on + flash during kinetic scenes */
 .light-overlay.hot {
   opacity: 1;
   animation: ambulanceFlash 1.25s linear infinite;
 }
 
-/* Red/blue alternating flashes with short “dead” gaps */
 @keyframes ambulanceFlash {
-  /* RED flash */
+  /* RED pulse */
   0%   { background: rgba(255, 0, 0, 0.00); }
   6%   { background: rgba(255, 0, 0, 0.32); }
   14%  { background: rgba(255, 0, 0, 0.06); }
   20%  { background: rgba(255, 0, 0, 0.00); }
 
-  /* small gap */
-  28%  { background: rgba(0, 0, 0, 0.00); }
+  /* pause */
+  30%  { background: rgba(0, 0, 0, 0.00); }
 
-  /* BLUE flash */
-  34%  { background: rgba(0, 120, 255, 0.00); }
-  40%  { background: rgba(0, 120, 255, 0.30); }
-  48%  { background: rgba(0, 120, 255, 0.06); }
-  54%  { background: rgba(0, 120, 255, 0.00); }
-
-  /* longer gap to feel like rotating bar */
-  70%  { background: rgba(0, 0, 0, 0.00); }
-
-  /* quick RED double-tap */
-  76%  { background: rgba(255, 0, 0, 0.22); }
-  82%  { background: rgba(255, 0, 0, 0.00); }
+  /* BLUE pulse */
+  36%  { background: rgba(0, 120, 255, 0.00); }
+  42%  { background: rgba(0, 120, 255, 0.30); }
+  50%  { background: rgba(0, 120, 255, 0.06); }
+  58%  { background: rgba(0, 120, 255, 0.00); }
 
   100% { background: rgba(0, 0, 0, 0.00); }
 }
@@ -124,7 +113,8 @@ html, body {
   padding: 20px 24px;
   border-radius: 12px;
   border: 1px solid rgba(255,255,255,0.15);
-  transition: opacity 1s ease;
+  transition: opacity 0.6s ease;
+  z-index: 30;
 }
 
 .title {
@@ -155,5 +145,112 @@ button:hover {
 
 .fade-out {
   opacity: 0;
+  pointer-events: none;
 }
+
+/* CHARACTER SELECT SCREEN */
+.character-select {
+  position: absolute;
+  inset: 0;
+  z-index: 40;
+  background: url('./assets/backgrounds/ui/character_select.webp') center / cover no-repeat;
+  opacity: 0;
+  transform: scale(1.01);
+  transition: opacity 0.6s ease, transform 1.2s ease;
+}
+
+.character-select.show {
+  opacity: 1;
+  transform: scale(1);
+}
+
+/* Split shading for readability */
+.character-select::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    to right,
+    rgba(0,0,0,0.46) 0%,
+    rgba(0,0,0,0.15) 34%,
+    rgba(0,0,0,0.15) 66%,
+    rgba(0,0,0,0.46) 100%
+  );
+}
+
+/* Center divider */
+.character-select::after {
+  content: "";
+  position: absolute;
+  top: 10%;
+  bottom: 10%;
+  left: 50%;
+  width: 2px;
+  transform: translateX(-1px);
+  pointer-events: none;
+  background: rgba(255,255,255,0.28);
+  box-shadow: 0 0 14px rgba(255,255,255,0.40);
+}
+
+/* UI container */
+.cs-ui {
+  position: absolute;
+  left: 6%;
+  right: 6%;
+  bottom: 7%;
+  padding: 16px 16px 18px;
+  border-radius: 14px;
+  background: rgba(0,0,0,0.38);
+  border: 1px solid rgba(255,255,255,0.16);
+  backdrop-filter: blur(10px);
+}
+
+.cs-title {
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  opacity: 0.92;
+  margin-bottom: 12px;
+  text-align: center;
+}
+
+.cs-buttons {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.cs-btn {
+  border-radius: 14px;
+  border: 1px solid rgba(255,255,255,0.35);
+  padding: 12px 10px;
+  background: rgba(0,0,0,0.25);
+  backdrop-filter: blur(6px);
+}
+
+.cs-btn.active {
+  background: rgba(255,255,255,0.14);
+  border-color: rgba(255,255,255,0.85);
+}
+
+.cs-start {
+  width: 100%;
+  border-radius: 14px;
+  padding: 12px 10px;
+  border: 2px solid rgba(255,255,255,0.80);
+  background: rgba(255,255,255,0.10);
+}
+
+.cs-start:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.cs-note {
+  margin-top: 10px;
+  font-size: 0.95rem;
+  opacity: 0.78;
+  text-align: center;
 }
