@@ -40,8 +40,7 @@
 
   const byId = (n) => panels.find(p => p.dataset.panel === String(n));
 
-  // Panels that should flash ambulance lights
-  // KEEP existing + ADD panel 1 only
+  // KEEP original flashing panels + ADD panel 1
   const flashSet = new Set([1, 6, 9]);
 
   const order = [
@@ -57,11 +56,11 @@
     const el = byId(panelNum);
     if (el) el.classList.add('active');
 
-    // Only apply flashing to allowed panels
+    // THIS MATCHES YOUR CSS (.light-overlay.hot)
     if (flashSet.has(panelNum)) {
-      overlay.classList.add('flash');
+      overlay.classList.add('hot');
     } else {
-      overlay.classList.remove('flash');
+      overlay.classList.remove('hot');
     }
   }
 
