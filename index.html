@@ -1,15 +1,16 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-<title>Code Blue – Season One</title>
-<link rel="stylesheet" href="./styles.css" />
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>Code Blue – Season One</title>
+  <link rel="stylesheet" href="./styles.css" />
 </head>
 <body>
 
 <main class="intro-root" id="introRoot">
 
+  <!-- INTRO PANELS (backgrounds mapped in styles.css) -->
   <section class="panel" data-panel="1"></section>
   <section class="panel" data-panel="2"></section>
   <section class="panel" data-panel="3"></section>
@@ -21,14 +22,36 @@
   <section class="panel" data-panel="8"></section>
   <section class="panel kinetic" data-panel="9"></section>
 
+  <!-- FX overlays -->
   <div class="light-overlay" id="lightOverlay"></div>
   <div class="vignette"></div>
 
+  <!-- TITLE CARD -->
   <div class="title-card" id="titleCard">
     <div class="title">CODE BLUE</div>
     <div class="subtitle">Season One</div>
-    <button id="startBtn">START</button>
+    <button id="startBtn" type="button">START</button>
   </div>
+
+  <!-- CHARACTER SELECT (hidden until START) -->
+  <section class="character-select" id="characterSelect" hidden aria-label="Choose your character">
+    <div class="cs-ui">
+      <div class="cs-title">Choose Your Character</div>
+
+      <div class="cs-buttons">
+        <button class="cs-btn" id="chooseAdrian" type="button">Dr. Adrian Cole</button>
+        <button class="cs-btn" id="chooseCeleste" type="button">Dr. Celeste Marlowe</button>
+      </div>
+
+      <button class="cs-start" id="startShiftBtn" type="button" disabled>Start Shift</button>
+      <div class="cs-note" id="csNote">Select a character to begin.</div>
+    </div>
+  </section>
+
+  <!-- THEME MUSIC (plays on START click) -->
+  <audio id="themeAudio" preload="auto" loop>
+    <source src="./assets/audio/code_blue_theme.mp3" type="audio/mpeg">
+  </audio>
 
 </main>
 
@@ -38,11 +61,21 @@
   const overlay = document.getElementById('lightOverlay');
   const titleCard = document.getElementById('titleCard');
 
+  const characterSelect = document.getElementById('characterSelect');
+  const themeAudio = document.getElementById('themeAudio');
+
+  const chooseAdrian = document.getElementById('chooseAdrian');
+  const chooseCeleste = document.getElementById('chooseCeleste');
+  const startShiftBtn = document.getElementById('startShiftBtn');
+  const csNote = document.getElementById('csNote');
+
   const byId = (n) => panels.find(p => p.dataset.panel === String(n));
 
-  // KEEP original flashing panels + ADD panel 1
+  // Panels that should have ambulance flashes.
+  // Keep your existing ones + include panel 1.
   const flashSet = new Set([1, 6, 9]);
 
+  // Interwoven intro sequence
   const order = [
     9, 1, 6, 2, 8, 3, 4, 7, 5,
     1, 6, 2, 9, 3, 8, 5
@@ -50,18 +83,15 @@
 
   let idx = 0;
   let timer = null;
+  let selected = null;
 
   function setActive(panelNum) {
     panels.forEach(p => p.classList.remove('active'));
     const el = byId(panelNum);
     if (el) el.classList.add('active');
 
-    // THIS MATCHES YOUR CSS (.light-overlay.hot)
-    if (flashSet.has(panelNum)) {
-      overlay.classList.add('hot');
-    } else {
-      overlay.classList.remove('hot');
-    }
+    if (flashSet.has(panelNum)) overlay.classList.add('hot');
+    else overlay.classList.remove('hot');
   }
 
   function next() {
@@ -74,12 +104,50 @@
     timer = setInterval(next, 8000);
   }
 
+  function stopLoop() {
+    if (timer) clearInterval(timer);
+    timer = null;
+  }
+
+  // Init montage
   setActive(order[0]);
   startLoop();
 
-  document.getElementById('startBtn').addEventListener('click', () => {
-    if (timer) clearInterval(timer);
+  // START -> stop montage, show character select, play theme
+  document.getElementById('startBtn').addEventListener('click', async () => {
+    stopLoop();
     titleCard.classList.add('fade-out');
+
+    // show character select on a slight beat (feels intentional)
+    setTimeout(() => {
+      characterSelect.hidden = false;
+      characterSelect.classList.add('show');
+    }, 250);
+
+    // iOS audio unlock via user gesture (this click)
+    try {
+      themeAudio.volume = 0.85;
+      await themeAudio.play();
+    } catch (_) {
+      // If blocked, it’s still wired. Next user tap will allow play.
+    }
+  });
+
+  function setSelected(which) {
+    selected = which;
+    chooseAdrian.classList.toggle('active', which === 'adrian');
+    chooseCeleste.classList.toggle('active', which === 'celeste');
+    startShiftBtn.disabled = !selected;
+    csNote.textContent = selected ? `Selected: ${which === 'adrian' ? 'Dr. Adrian Cole' : 'Dr. Celeste Marlowe'}` : 'Select a character to begin.';
+  }
+
+  chooseAdrian.addEventListener('click', () => setSelected('adrian'));
+  chooseCeleste.addEventListener('click', () => setSelected('celeste'));
+
+  // Stub hook (replace later with your story start routing)
+  startShiftBtn.addEventListener('click', () => {
+    if (!selected) return;
+    alert(`Start Shift (stub) — POV: ${selected}`);
   });
 })();
 </script>
