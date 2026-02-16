@@ -38,7 +38,7 @@ html, body {
 
 /* Background Assignments */
 .panel[data-panel="1"] {
-  background-image: url('./assets/backgrounds/intro/01-boardroom.webp');
+  background-image: url('./assets/backgrounds/intro/01-hospital-night.webp');
 }
 
 .panel[data-panel="2"] {
@@ -54,7 +54,7 @@ html, body {
 }
 
 .panel[data-panel="5"] {
-  background-image: url('./assets/backgrounds/intro/05-overdose.webp');
+  background-image: url('./assets/backgrounds/intro/05-suspense.webp');
 }
 
 /* Title Card */
