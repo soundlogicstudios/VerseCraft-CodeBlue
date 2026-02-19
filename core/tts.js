@@ -1,11 +1,17 @@
 // Browser TTS helper for VerseCraft testbed (GitHub Pages safe).
 // NOTE: Browsers do not expose a true "male/female" voice flag.
-// We choose best-effort voices via language + name heuristics.
+// We choose best-effort voices via language + name heuristics, and we CACHE
+// the best male/female voices once voices are available.
 
 export const tts = (() => {
   let enabled = false;
   let voiceProfile = "male"; // 'male' | 'female' | 'auto'
   let currentUtterance = null;
+
+  // Cached voices (resolved once when voices are available)
+  let cachedMaleVoice = null;
+  let cachedFemaleVoice = null;
+  let cachedAutoVoice = null;
 
   const maleHints = [
     "daniel","david","alex","fred","george","tom","thomas","mark","paul","john","james",
@@ -23,23 +29,24 @@ export const tts = (() => {
     catch { return []; }
   }
 
-  function _scoreVoice(v) {
+  // Score a voice for a requested profile (male/female/auto)
+  function _scoreVoiceForProfile(v, profile) {
     const name = String(v?.name || "").toLowerCase();
     const lang = String(v?.lang || "").toLowerCase();
 
-    // Prefer English (adjust if you want other languages)
     let score = 0;
+
+    // Prefer English
     if (lang.startsWith("en")) score += 50;
     if (lang === "en-us") score += 8;
 
-    // De-prioritize novelty voices that can be harsh
+    // De-prioritize harsh novelty voices
     if (name.includes("whisper")) score -= 10;
 
-    // Profile bias
-    if (voiceProfile === "male") {
+    if (profile === "male") {
       for (const h of maleHints) if (name.includes(h)) score += 12;
       for (const h of femaleHints) if (name.includes(h)) score -= 10;
-    } else if (voiceProfile === "female") {
+    } else if (profile === "female") {
       for (const h of femaleHints) if (name.includes(h)) score += 12;
       for (const h of maleHints) if (name.includes(h)) score -= 10;
     }
@@ -47,30 +54,62 @@ export const tts = (() => {
     return score;
   }
 
-  function _pickVoice() {
+  function _pickBestVoice(profile) {
     const voices = _voices();
     if (!voices.length) return null;
 
-    // filter to English first if possible
     const english = voices.filter(v => String(v.lang || "").toLowerCase().startsWith("en"));
     const pool = english.length ? english : voices;
 
     let best = pool[0];
     let bestScore = -1e9;
+
     for (const v of pool) {
-      const s = _scoreVoice(v);
+      const s = _scoreVoiceForProfile(v, profile);
       if (s > bestScore) { bestScore = s; best = v; }
     }
-    return best;
+    return best || null;
+  }
+
+  // Cache voices once (and refresh cache if voices list changes later)
+  function _cacheVoices() {
+    const voices = _voices();
+    if (!voices.length) return;
+
+    cachedMaleVoice = _pickBestVoice("male");
+    cachedFemaleVoice = _pickBestVoice("female");
+    cachedAutoVoice = _pickBestVoice("auto");
+
+    // If male/female resolve to the same voice and we have >1 voice,
+    // try to force them to be different by selecting the runner-up.
+    if (cachedMaleVoice && cachedFemaleVoice && cachedMaleVoice === cachedFemaleVoice && voices.length > 1) {
+      const english = voices.filter(v => String(v.lang || "").toLowerCase().startsWith("en"));
+      const pool = english.length ? english : voices;
+
+      // Find an alternative for female (or male) that isn't the same object
+      let altFemale = null;
+      let bestScore = -1e9;
+      for (const v of pool) {
+        if (v === cachedMaleVoice) continue;
+        const s = _scoreVoiceForProfile(v, "female");
+        if (s > bestScore) { bestScore = s; altFemale = v; }
+      }
+      if (altFemale) cachedFemaleVoice = altFemale;
+    }
   }
 
   function _extractNarrative(raw) {
     const txt = String(raw || "");
     if (!txt) return "";
-    // Prefer to cut at delimiter or CHOICES header (for printed format)
     const cut1 = txt.split("----------------")[0];
     const cut2 = cut1.split("\nCHOICES\n")[0];
     return cut2.trim();
+  }
+
+  function _voiceForCurrentProfile() {
+    if (voiceProfile === "male") return cachedMaleVoice || cachedAutoVoice;
+    if (voiceProfile === "female") return cachedFemaleVoice || cachedAutoVoice;
+    return cachedAutoVoice || cachedMaleVoice || cachedFemaleVoice;
   }
 
   function speak(rawText) {
@@ -81,11 +120,13 @@ export const tts = (() => {
     stop();
 
     const u = new SpeechSynthesisUtterance(text);
+
+    // Stronger differentiation (still natural)
     u.rate = 0.98;
-    u.pitch = (voiceProfile === "male") ? 0.92 : (voiceProfile === "female" ? 1.05 : 1.0);
+    u.pitch = (voiceProfile === "male") ? 0.80 : (voiceProfile === "female" ? 1.18 : 1.0);
     u.volume = 1.0;
 
-    const v = _pickVoice();
+    const v = _voiceForCurrentProfile();
     if (v) u.voice = v;
 
     currentUtterance = u;
@@ -100,6 +141,9 @@ export const tts = (() => {
   function setVoiceProfile(profile) {
     const p = String(profile || "").toLowerCase();
     if (p === "male" || p === "female" || p === "auto") voiceProfile = p;
+
+    // Ensure we have cached voices once a profile is set
+    _cacheVoices();
   }
 
   function getVoiceProfile() { return voiceProfile; }
@@ -107,6 +151,7 @@ export const tts = (() => {
   function setEnabled(on) {
     enabled = !!on;
     if (!enabled) stop();
+    if (enabled) _cacheVoices();
   }
 
   function initToggle({ buttonEl, onEnableSpeak } = {}) {
@@ -120,15 +165,32 @@ export const tts = (() => {
     buttonEl.addEventListener("click", () => {
       enabled = !enabled;
       sync();
-      if (enabled && typeof onEnableSpeak === "function") onEnableSpeak();
-      if (!enabled) stop();
+
+      if (enabled) {
+        _cacheVoices();
+
+        // iOS/Safari reliability: a user gesture happened, so kick a tiny silent utterance
+        // to "prime" speech in some environments.
+        try {
+          window.speechSynthesis.cancel();
+          const prime = new SpeechSynthesisUtterance(" ");
+          prime.volume = 0;
+          window.speechSynthesis.speak(prime);
+          window.speechSynthesis.cancel();
+        } catch (_) {}
+
+        if (typeof onEnableSpeak === "function") onEnableSpeak();
+      } else {
+        stop();
+      }
     });
 
     sync();
 
-    // Some browsers load voices async
+    // Voices often load async (especially on iOS).
     if (typeof window !== "undefined" && window.speechSynthesis) {
-      window.speechSynthesis.onvoiceschanged = () => { _voices(); };
+      window.speechSynthesis.onvoiceschanged = () => { _cacheVoices(); };
+      _cacheVoices();
     }
   }
 
