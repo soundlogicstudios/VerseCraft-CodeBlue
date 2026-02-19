@@ -65,6 +65,7 @@
 
   <!-- STORY HARNESS (ENGINE TESTBED) -->
   <section class="story-harness" id="storyHarness" hidden aria-label="Story Screen">
+    <div class="story-bg" id="storyBg" aria-hidden="true"></div>
     <div class="story-ui">
       <div class="story-topbar">
         <button class="story-btn" id="btnVoice" aria-pressed="false" type="button">Voice: OFF</button>
@@ -227,6 +228,12 @@
         document.getElementById('choice3'),
       ]
     });
+
+    
+
+    // Story background (user-provided asset)
+    const bgEl = document.getElementById('storyBg');
+    if (bgEl) bgEl.style.backgroundImage = "url('./assets/backgrounds/ui/codeblue-narrative-panel.webp')";
 
     await engine.init('code_blue');
 
