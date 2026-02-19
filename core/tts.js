@@ -1,6 +1,11 @@
-// tts.js (ES module) — with hard teardown + rebuild hooks
+// tts.js
+// Cross-platform TTS for VerseCraft testbed.
+// Fixes:
+// 1) Singleton: prevents "two TTS instances" (toggle stops the wrong one) after character switching.
+// 2) Safe toggle binding: no duplicated listeners, always syncs button state.
+// 3) Strong but not cartoonish POV shaping: Adrian deeper, Celeste brighter (deterministic even with one voice).
 
-export const tts = (() => {
+function create_tts_singleton() {
   let enabled = false;
   let voiceProfile = "male"; // 'male' | 'female' | 'auto'
 
@@ -8,14 +13,14 @@ export const tts = (() => {
   let cachedFemaleVoice = null;
   let cachedAutoVoice = null;
 
-  // Toggle binding state
-  let boundButton = null;
-  let boundAbort = null;
+  // Track any toggle buttons we bind so state stays consistent.
+  const boundButtons = new Set();
 
   const maleHints = [
     "daniel","david","alex","fred","tom","thomas","mark","paul","john","james",
     "matt","matthew","ryan","michael","ben","brian","bruce","kevin","sam","steve","male"
   ];
+
   const femaleHints = [
     "samantha","victoria","karen","zira","ava","emma","olivia","sara","sarah",
     "jenny","jennifer","allison","amy","female"
@@ -69,7 +74,8 @@ export const tts = (() => {
     cachedFemaleVoice = _pickBest("female");
     cachedAutoVoice = _pickBest("auto");
 
-    // Try to separate male/female if they collide and multiple voices exist
+    // If both profiles resolve to the same voice and we have multiple voices,
+    // try to force a different female voice (best effort).
     if (cachedMaleVoice && cachedFemaleVoice && cachedMaleVoice === cachedFemaleVoice && voices.length > 1) {
       const english = voices.filter(v => String(v.lang || "").toLowerCase().startsWith("en"));
       const pool = english.length ? english : voices;
@@ -94,13 +100,15 @@ export const tts = (() => {
     return cachedAutoVoice || cachedMaleVoice || cachedFemaleVoice;
   }
 
-  function _syncButton() {
-    if (!boundButton || !boundButton.isConnected) return;
-    boundButton.textContent = `Voice: ${enabled ? "ON" : "OFF"}`;
-    boundButton.setAttribute("aria-pressed", enabled ? "true" : "false");
+  function _syncButtons() {
+    for (const btn of boundButtons) {
+      if (!btn || !btn.isConnected) continue;
+      btn.textContent = `Voice: ${enabled ? "ON" : "OFF"}`;
+      btn.setAttribute("aria-pressed", enabled ? "true" : "false");
+    }
   }
 
-  // iOS: voices async
+  // iOS Safari: voices often arrive async
   if (window.speechSynthesis) {
     window.speechSynthesis.onvoiceschanged = () => { _cacheVoices(); };
     _cacheVoices();
@@ -116,13 +124,17 @@ export const tts = (() => {
 
     const u = new SpeechSynthesisUtterance(text);
 
+    // Always refresh cache before speaking; cheap and helps iOS.
     _cacheVoices();
+
     const v = _voiceForProfile();
     if (v) u.voice = v;
 
-    // Tuned voices (Adrian not too low)
+    // ✅ POV shaping (adjusted: Adrian less “too low”)
+    // Adrian: deeper but not comical
+    // Celeste: brighter but not chipmunk
     if (voiceProfile === "male") {
-      u.pitch = 0.84;
+      u.pitch = 0.78;  // was ~0.62; brought up
       u.rate  = 0.96;
     } else if (voiceProfile === "female") {
       u.pitch = 1.14;
@@ -131,6 +143,7 @@ export const tts = (() => {
       u.pitch = 1.0;
       u.rate  = 0.98;
     }
+
     u.volume = 1.0;
 
     try { window.speechSynthesis.speak(u); } catch (_) {}
@@ -143,62 +156,44 @@ export const tts = (() => {
   function setVoiceProfile(profile) {
     const p = String(profile || "").toLowerCase();
     if (p === "male" || p === "female" || p === "auto") voiceProfile = p;
+
+    // IMPORTANT: do NOT auto-play on profile switch.
+    // (Switching characters will speak when the engine calls speak() on scene render.)
     _cacheVoices();
   }
+
+  function getVoiceProfile() { return voiceProfile; }
 
   function setEnabled(on) {
     enabled = !!on;
     if (!enabled) stop();
-    _syncButton();
+    _syncButtons();
   }
+
+  function isEnabled() { return enabled; }
 
   function toggle() {
     setEnabled(!enabled);
     return enabled;
   }
 
-  // NEW: Hard teardown for POV switching
-  function reset({ keepEnabled = false } = {}) {
-    // stop audio
-    stop();
+  // Idempotent toggle binder: safe to call multiple times, won’t stack listeners.
+  function initToggle({ buttonEl } = {}) {
+    if (!buttonEl) return;
 
-    // reset voice caches
-    cachedMaleVoice = null;
-    cachedFemaleVoice = null;
-    cachedAutoVoice = null;
-
-    // optionally reset enabled
-    if (!keepEnabled) enabled = false;
-
-    // unbind toggle
-    if (boundAbort) {
-      try { boundAbort.abort(); } catch (_) {}
+    // If previously bound, remove previous handler using AbortController.
+    if (buttonEl.__vc_tts_abort__) {
+      try { buttonEl.__vc_tts_abort__.abort(); } catch (_) {}
     }
-    boundAbort = null;
-    boundButton = null;
+    const ac = new AbortController();
+    buttonEl.__vc_tts_abort__ = ac;
 
-    // re-cache (so next init is fast)
-    _cacheVoices();
-  }
+    boundButtons.add(buttonEl);
+    _syncButtons();
 
-  // NEW: Rebuild toggle binding fresh every time
-  function rebindToggle({ buttonEl, onEnableSpeak } = {}) {
-    // kill old binding if any
-    if (boundAbort) {
-      try { boundAbort.abort(); } catch (_) {}
-    }
-
-    boundButton = buttonEl || null;
-    boundAbort = new AbortController();
-
-    _syncButton();
-
-    if (!boundButton) return;
-
-    boundButton.addEventListener("click", () => {
+    buttonEl.addEventListener("click", () => {
+      // User gesture: prime iOS speech pipeline when turning ON
       const nowOn = toggle();
-
-      // iOS prime on user gesture when turning ON
       if (nowOn) {
         try {
           window.speechSynthesis.cancel();
@@ -207,23 +202,25 @@ export const tts = (() => {
           window.speechSynthesis.speak(prime);
           window.speechSynthesis.cancel();
         } catch (_) {}
-
-        if (typeof onEnableSpeak === "function") {
-          try { onEnableSpeak(); } catch (_) {}
-        }
-      } else {
-        stop();
       }
-    }, { signal: boundAbort.signal });
+    }, { signal: ac.signal });
   }
 
   return {
     speak,
     stop,
+    initToggle,
     setVoiceProfile,
+    getVoiceProfile,
     setEnabled,
-    toggle,
-    reset,
-    rebindToggle
+    isEnabled,
+    toggle
   };
-})();
+}
+
+// ✅ Singleton export: if loaded twice (module + fallback), both point to same instance.
+const KEY = "__VC_TTS_SINGLETON__";
+const singleton = (typeof window !== "undefined" && window[KEY]) ? window[KEY] : create_tts_singleton();
+if (typeof window !== "undefined") window[KEY] = singleton;
+
+export const tts = singleton;
