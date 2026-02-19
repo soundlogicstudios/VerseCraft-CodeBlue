@@ -1,0 +1,80 @@
+{
+  "meta": {
+    "id": "code_blue_female",
+    "title": "Code Blue",
+    "route": "female",
+    "protagonist": "Dr. Celeste Marlowe",
+    "schema": "versecraft_story_canon_v1",
+    "tone": "TV-MA hospital romance / drama",
+    "notes": "Celeste POV rewrite. Canon layout: long narrative + separator + CHOICES block with pill labels + long descriptions. ASCII-only.",
+    "blurb": "Authority is earned in blood and silence. As Dr. Celeste Marlowe, you do not prove yourself. You maintain control. But every new intern, every glance, every compromise tests how much power you truly have."
+  },
+  "start": "S01",
+  "scenes": {
+    "S01": {
+      "text": "The ER does not intimidate you anymore.\n\nIt hums. It breathes. It bends around the people strong enough to command it.\n\nYou walk through the bay and the rhythm adjusts. Nurses pivot without being asked. Residents quiet when you enter. The room recognizes hierarchy.\n\nDr. Celeste Marlowe. Attending.\n\nYou earned that title the hard way.\n\nA new intern stands near the trauma board, trying not to look overwhelmed. He adjusts his badge like it might anchor him.\n\nYou clock him once. Posture. Hands. Eyes. He wants to be seen.\n\nDown the hall, another intern laughs too loudly. Confidence without calibration.\n\nThe night nurse moves through it all with surgical efficiency, catching mistakes before they become lawsuits.\n\nYou feel it before it happens.\n\nThe shift is going to test someone.\n\nThe question is who.\n\n----------------\nCHOICES\n1) TEST THE INTERN - You push him early and see what he is made of. Pressure reveals competence and ego.\n2) WATCH QUIETLY - You observe before acting. Control begins with information.\n3) STABILIZE THE FLOOR - You focus on tightening the room before chaos finds it.\n4) ENGAGE THE NURSE - You align with your strongest support first."
+,
+      "options": [
+        { "label": "Test The Intern", "to": "S02" },
+        { "label": "Watch Quietly", "to": "S03" },
+        { "label": "Stabilize The Floor", "to": "S04" },
+        { "label": "Engage The Nurse", "to": "S05" }
+      ]
+    },
+
+    "S02": {
+      "text": "You move toward the intern without warning.\n\nYou hand him a chart mid-stride and do not slow down.\n\n\"Keep up,\" you say.\n\nYou do not explain. You do not soften it.\n\nYou watch him skim vitals while walking. He hesitates once, then recovers. Good.\n\nIn the trauma bay, you take control in three sentences. The patient stabilizes under structure.\n\nYou glance at him again.\n\nHe is not afraid.\n\nThat interests you.\n\n----------------\nCHOICES\n1) PUSH HARDER - You increase pressure and see if he cracks.\n2) OFFER GUIDANCE - You calibrate him instead of crushing him.\n3) STAY NEUTRAL - You let the shift decide his fate.\n4) CHALLENGE PUBLICLY - You test him in front of the team."
+,
+      "options": [
+        { "label": "Push Harder", "to": "S06" },
+        { "label": "Offer Guidance", "to": "S06" },
+        { "label": "Stay Neutral", "to": "S05" },
+        { "label": "Challenge Publicly", "to": "S07" }
+      ]
+    },
+
+    "S03": {
+      "text": "You stay back.\n\nObservation is power.\n\nYou watch who gravitates toward the intern. Who ignores him. Who sizes him up.\n\nThe rival intern circles like he smells competition.\n\nThe nurse watches you instead.\n\nYou realize something.\n\nThis is not about medicine yet.\n\nIt is about positioning.\n\n----------------\nCHOICES\n1) STEP IN LATE - You intervene at the critical moment.\n2) LET THEM STRUGGLE - Growth requires discomfort.\n3) ALIGN WITH NURSE - You consolidate power.\n4) CALL OUT MISTAKE - You assert dominance early."
+,
+      "options": [
+        { "label": "Step In Late", "to": "S06" },
+        { "label": "Let Them Struggle", "to": "S05" },
+        { "label": "Align With Nurse", "to": "S05" },
+        { "label": "Call Out Mistake", "to": "S07" }
+      ]
+    },
+
+    "S04": {
+      "text": "You recalibrate the floor.\n\nOrders are clarified. Charts are tightened. The noise narrows.\n\nThe intern notices. He watches how you hold the room without raising your voice.\n\nPower does not shout.\n\nIt waits.\n\nA monitor spikes.\n\nThere it is.\n\n----------------\nCHOICES\n1) TAKE COMMAND - You run the code yourself.\n2) HAND IT OFF - You test someone else under pressure.\n3) SPLIT CONTROL - You share authority carefully.\n4) OBSERVE FIRST - You read the room before acting."
+,
+      "options": [
+        { "label": "Take Command", "to": "S06" },
+        { "label": "Hand It Off", "to": "S06" },
+        { "label": "Split Control", "to": "S06" },
+        { "label": "Observe First", "to": "S05" }
+      ]
+    },
+
+    "S05": {
+      "text": "You align with the nurse.\n\nShe respects strength.\n\nYou exchange a look that says the same thing: no one embarrasses this department tonight.\n\nYou notice a small documentation shortcut.\n\nYou could ignore it.\n\nYou could correct it.\n\nYou could weaponize it later.\n\n----------------\nCHOICES\n1) CORRECT QUIETLY - You protect standards without humiliation.\n2) IGNORE IT - Loyalty buys you leverage.\n3) ADDRESS PUBLICLY - You reinforce authority.\n4) REMEMBER IT - Information is currency."
+,
+      "options": [
+        { "label": "Correct Quietly", "to": "S06" },
+        { "label": "Ignore It", "to": "S10" },
+        { "label": "Address Publicly", "to": "S07" },
+        { "label": "Remember It", "to": "S10" }
+      ]
+    },
+
+    "S06": {
+      "text": "The patient crashes.\n\nThe monitor screams.\n\nThe room fractures.\n\nYou do not.\n\nOrders leave your mouth clean and precise. Hands move. The intern reacts faster this time.\n\nYou catch a subtle error before it compounds.\n\nThe patient stabilizes.\n\nAfterward, the intern looks at you differently.\n\nNot intimidated.\n\nMeasuring.\n\nYou feel it.\n\nThe line between authority and attraction is thinner than policy admits.\n\n----------------\nCHOICES\n1) KEEP IT PROFESSIONAL - You protect both careers.\n2) LET TENSION BUILD - You allow subtext.\n3) MENTOR DIRECTLY - You guide him intentionally.\n4) CREATE DISTANCE - You step back before it complicates."
+,
+      "options": [
+        { "label": "Keep It Professional", "to": "S10" },
+        { "label": "Let Tension Build", "to": "S11" },
+        { "label": "Mentor Directly", "to": "S10" },
+        { "label": "Create Distance", "to": "S10" }
+      ]
+    }
+  }
+}
