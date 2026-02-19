@@ -90,6 +90,7 @@
   import { PanelEngine } from "./core/panel_engine.js";
   import { tts } from "./core/tts.js";
 
+window.__vc_initialized = true;
 (() => {
   const root = document.getElementById('introRoot');
 
@@ -172,6 +173,14 @@
       await themeAudio.play();
     } catch (_) {}
   }
+
+  // Expose a global fallback hook (in case module init is blocked)
+  window.__vc_enter = async () => {
+    try { await startMontageAndMusic(); } catch(_) {}
+    splash.classList.add('fade-out');
+    setTimeout(() => { splash.hidden = true; }, 450);
+  };
+
 
   // SPLASH ENTER -> start music + slideshow + reveal title card
   enterBtn.addEventListener('click', async () => {
@@ -280,6 +289,72 @@
       setTimeout(() => { harness.hidden = true; }, 250);
     };
   });
+})();
+</script>
+
+
+<script>
+/* Fallback: if module JS fails to run (import blocked / 404), still allow splash -> montage. */
+(function() {
+  function byId(n) { return document.querySelector('.panel[data-panel="'+n+'"]'); }
+  var splash = document.getElementById('splash');
+  var enterBtn = document.getElementById('enterBtn');
+  var titleCard = document.getElementById('titleCard');
+  var startBtn = document.getElementById('startBtn');
+  var overlay = document.getElementById('lightOverlay');
+  var themeAudio = document.getElementById('themeAudio');
+
+  var order = [9,1,6,2,8,3,4,7,5,1,6,2,9,3,8,5];
+  var flashSet = {1:true,6:true,9:true};
+  var idx = 0;
+  var timer = null;
+  var montageStarted = false;
+
+  function setActive(num) {
+    var panels = document.querySelectorAll('.panel');
+    for (var i=0;i<panels.length;i++) panels[i].classList.remove('active');
+    var el = byId(num);
+    if (el) el.classList.add('active');
+    if (overlay) {
+      if (flashSet[num]) overlay.classList.add('hot');
+      else overlay.classList.remove('hot');
+    }
+  }
+  function next() { idx = (idx+1)%order.length; setActive(order[idx]); }
+  function startLoop() { if (timer) clearInterval(timer); timer=setInterval(next, 5000); }
+  function stopLoop() { if (timer) clearInterval(timer); timer=null; }
+
+  // If module initialized, do nothing.
+  setTimeout(function() {
+    if (window.__vc_initialized) return;
+
+    // Ensure we have a visible initial frame behind splash
+    setActive(order[0]);
+    stopLoop();
+
+    function enter() {
+      if (montageStarted) return;
+      montageStarted = true;
+      // show title card if it had been hidden
+      if (titleCard) titleCard.hidden = false;
+      startLoop();
+      // try audio (works after user tap)
+      try { if (themeAudio) { themeAudio.volume = 0.85; themeAudio.play(); } } catch(e) {}
+      if (splash) {
+        splash.classList.add('fade-out');
+        setTimeout(function(){ splash.hidden = true; }, 450);
+      }
+    }
+
+    if (enterBtn) enterBtn.onclick = enter;
+    if (splash) splash.onclick = enter;
+
+    if (startBtn) startBtn.onclick = function() {
+      // This fallback stops at title card (character select requires module runtime).
+      stopLoop();
+      if (titleCard) titleCard.classList.add('fade-out');
+    };
+  }, 600);
 })();
 </script>
 
