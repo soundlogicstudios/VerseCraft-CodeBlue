@@ -9,8 +9,16 @@ export const tts = (() => {
   function extractNarrative(rawText) {
     // Strip printed CHOICES section if present
     if (!rawText) return "";
-    const parts = String(rawText).split("----------------");
-    return String(parts[0] || "").trim();
+    let text = String(rawText);
+
+    // Cut at delimiter line if present
+    text = text.split("----------------")[0];
+
+    // Also cut at a CHOICES header if present (case-insensitive)
+    const m = text.match(/\n\s*CHOICES\b/i);
+    if (m && typeof m.index === "number") text = text.slice(0, m.index);
+
+    return String(text).trim();
   }
 
   function stop() {
@@ -20,10 +28,39 @@ export const tts = (() => {
   function pickVoice() {
     try {
       const voices = window.speechSynthesis.getVoices() || [];
-      // Prefer en-US; fall back to any English voice
-      return voices.find(v => v.lang === "en-US")
-        || voices.find(v => /en/i.test(v.lang))
-        || null;
+      if (!voices.length) return null;
+
+      // Prefer English voices
+      const english = voices.filter(v => /en/i.test(String(v.lang || "")));
+      const pool = english.length ? english : voices;
+
+      // "Male-preferred" heuristic: browsers don't expose gender, so we guess by name.
+      // We prefer voices whose names commonly map to male voices and avoid obvious female names.
+      const maleHints = [
+        "David","Mark","Alex","Daniel","Paul","Fred","George","John","James",
+        "Thomas","Michael","Andrew","Ryan","Aaron","Arthur","Brian","Bruce",
+        "Eddy","Ethan","Jack","Oliver","Liam","William"
+      ];
+      const femaleHints = ["Samantha","Victoria","Karen","Tessa","Fiona","Moira","Serena","Ava","Emily","Susan"];
+
+      function score(v) {
+        const name = String(v.name || "");
+        const lang = String(v.lang || "");
+        let s = 0;
+        if (lang === "en-US") s += 6;
+        else if (/en-US/i.test(lang)) s += 5;
+        else if (/en/i.test(lang)) s += 3;
+
+        for (const h of maleHints) if (name.includes(h)) s += 4;
+        for (const h of femaleHints) if (name.includes(h)) s -= 6;
+
+        // Slight preference for "Enhanced"/"Premium"/"Natural" voices if present
+        if (/enhanced|premium|natural/i.test(name)) s += 1;
+
+        return s;
+      }
+
+      return pool.slice().sort((a,b) => score(b) - score(a))[0] || null;
     } catch (_) {
       return null;
     }
