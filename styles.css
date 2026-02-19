@@ -77,7 +77,7 @@ html, body {
   background-position: center;
   opacity: 0;
   transform: scale(1);
-  transition: opacity 2.5s ease-in-out, transform 16s linear;
+  transition: opacity 1.6s ease-in-out, transform 10s linear; /* faster fade + drift */
   filter: none;
 }
 
