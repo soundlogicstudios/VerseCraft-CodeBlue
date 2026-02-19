@@ -87,6 +87,7 @@
 </main>
 
 
+  <script src="./library/code_blue_data.js"></script>
   <script src="./core/tts_umd.js"></script>
   <script src="./core/panel_engine_umd.js"></script>
 <script type="module">
@@ -233,13 +234,8 @@ window.__vc_initialized = true;
       : 'Select a character to begin.';
   }
 
-    startShiftBtn.disabled = !selected;
-    csNote.textContent = selected
-      ? `Selected: ${which === 'celeste' ? 'Dr. Celeste Marlowe' : 'Dr. Adrian Cole'}`
-      : 'Select a character to begin.';
-  }
-
   chooseCeleste.addEventListener('click', () => setSelected('celeste'));
+('click', () => setSelected('celeste'));
   chooseAdrian.addEventListener('click', () => setSelected('adrian'));
 
   // Stub hook for now
@@ -407,11 +403,55 @@ window.__vc_initialized = true;
       startShiftBtn.onclick = function(){
         if (!pov) return;
         showHarness();
-        engine = new window.VC_PanelEngine({ textId:'storyText', choicesId:'storyChoices', statusId:'storyStatus' });
-        var url = "./library/" + (pov==='celeste' ? "code_blue_celeste.json" : "code_blue_adrian.json");
-        engine.load(url).then(function(ok){
-          if(!ok) engine.load("./library/code_blue.json");
-        });
+
+        // Render using embedded STRICT JSON (no fetch; CSP-safe)
+        var storyKey = (pov==='celeste') ? 'code_blue_celeste' : 'code_blue_adrian';
+        var story = (window.VC_GET_STORY_JSON) ? window.VC_GET_STORY_JSON(storyKey) : null;
+        if(!story) story = (window.VC_GET_STORY_JSON) ? window.VC_GET_STORY_JSON('code_blue') : null;
+
+        var narrativeEl = document.getElementById('panelNarrative');
+        var btns = [
+          document.getElementById('choice0'),
+          document.getElementById('choice1'),
+          document.getElementById('choice2'),
+          document.getElementById('choice3')
+        ];
+
+        function renderScene(sceneId){
+          if(!story || !story.scenes){ if(narrativeEl) narrativeEl.textContent='[Story missing]'; return; }
+          var sc = story.scenes[String(sceneId||'').trim()];
+          if(!sc){ if(narrativeEl) narrativeEl.textContent='[Missing scene: '+sceneId+']'; return; }
+          if(narrativeEl){ narrativeEl.textContent = String(sc.text||''); narrativeEl.scrollTop = 0; }
+          var opts = Array.isArray(sc.options) ? sc.options : [];
+          for(var i=0;i<btns.length;i++){
+            var b = btns[i];
+            if(!b) continue;
+            var span = b.querySelector('span') || b;
+            var opt = opts[i];
+            if(!opt){ span.textContent=''; b.disabled=true; b.onclick=null; continue; }
+            span.textContent = String(opt.label||'').trim();
+            b.disabled=false;
+            b.onclick = (function(to){ return function(){ if(window.VC_TTS) window.VC_TTS.stop(); renderScene(to); };})(opt.to);
+          }
+          if(window.VC_TTS) window.VC_TTS.speak(String(sc.text||''));
+        }
+
+        renderScene(story && story.start);
+
+        // Voice toggle wiring
+        var btnVoice = document.getElementById('btnVoice');
+        if(btnVoice && window.VC_TTS){
+          btnVoice.onclick = function(){
+            var on = !window.VC_TTS.enabled;
+            window.VC_TTS.toggle(on);
+            btnVoice.textContent = 'Voice: ' + (window.VC_TTS.enabled ? 'ON' : 'OFF');
+            btnVoice.setAttribute('aria-pressed', window.VC_TTS.enabled ? 'true' : 'false');
+            if(window.VC_TTS.enabled){
+              var sc0 = story.scenes[String(story.start||'').trim()];
+              if(sc0 && sc0.text) window.VC_TTS.speak(sc0.text);
+            }
+          };
+        }
       };
     }
   }, 600);
