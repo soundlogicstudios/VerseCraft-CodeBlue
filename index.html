@@ -125,6 +125,8 @@
   let timer = null;
   let montageStarted = false;
   let selected = null;
+  // Story JSON id to load based on POV selection
+  let storyIdSelected = 'code_blue';
 
   function setActive(panelNum) {
     panels.forEach(p => p.classList.remove('active'));
@@ -197,8 +199,27 @@
 
   function setSelected(which) {
     selected = which;
+
+    // POV wiring: choose voice profile + JSON id
+    if (which === 'adrian') {
+      storyIdSelected = 'code_blue_adrian';
+      tts.setVoiceProfile('male');
+    } else if (which === 'celeste') {
+      storyIdSelected = 'code_blue_celeste';
+      tts.setVoiceProfile('female');
+    } else {
+      storyIdSelected = 'code_blue';
+      tts.setVoiceProfile('auto');
+    }
+
     chooseCeleste.classList.toggle('active', which === 'celeste');
     chooseAdrian.classList.toggle('active', which === 'adrian');
+
+    startShiftBtn.disabled = !selected;
+    csNote.textContent = selected
+      ? `Selected: ${which === 'celeste' ? 'Dr. Celeste Marlowe' : 'Dr. Adrian Cole'}`
+      : 'Select a character to begin.';
+  }
 
     startShiftBtn.disabled = !selected;
     csNote.textContent = selected
@@ -235,7 +256,13 @@
     const bgEl = document.getElementById('storyBg');
     if (bgEl) bgEl.style.backgroundImage = "url('./assets/backgrounds/ui/codeblue-narrative-panel.webp')";
 
-    await engine.init('code_blue');
+    // Load POV-specific JSON if present; fallback to code_blue.json
+    try {
+      await engine.init(storyIdSelected);
+    } catch (e) {
+      console.warn('POV JSON not found, falling back to code_blue.json', e);
+      await engine.init('code_blue');
+    }
 
     // TTS toggle for story harness
     tts.initToggle({
