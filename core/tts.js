@@ -1,14 +1,20 @@
-// tts.js (ES module) — with hard teardown + rebuild hooks
+// tts.js — VerseCraft TTS (stable, no regression)
+// Goals:
+// - Keep existing behavior: engine calls tts.speak(scene.text) on render.
+// - VOICE toggle always visually updates and actually gates speech.
+// - Switching POV does NOT create a second “ghost” TTS instance (singleton).
+// - stop() always cancels whatever is speaking.
+// - Male/Female differentiation via pitch (and best-effort voice choice).
 
-export const tts = (() => {
+function create_tts() {
   let enabled = false;
-  let voiceProfile = "male"; // 'male' | 'female' | 'auto'
+  let voiceProfile = "male"; // "male" | "female" | "auto"
 
   let cachedMaleVoice = null;
   let cachedFemaleVoice = null;
   let cachedAutoVoice = null;
 
-  // Toggle binding state
+  // Track currently bound toggle button + handler so we can rebind cleanly
   let boundButton = null;
   let boundAbort = null;
 
@@ -26,53 +32,53 @@ export const tts = (() => {
     catch { return []; }
   }
 
-  function _scoreVoice(v, profile) {
+  function _score(v, profile) {
     const name = String(v?.name || "").toLowerCase();
     const lang = String(v?.lang || "").toLowerCase();
-    let score = 0;
+    let s = 0;
 
-    if (lang.startsWith("en")) score += 50;
-    if (lang === "en-us") score += 8;
+    if (lang.startsWith("en")) s += 50;
+    if (lang === "en-us") s += 8;
 
     if (profile === "male") {
-      for (const h of maleHints) if (name.includes(h)) score += 12;
-      for (const h of femaleHints) if (name.includes(h)) score -= 10;
+      for (const h of maleHints) if (name.includes(h)) s += 12;
+      for (const h of femaleHints) if (name.includes(h)) s -= 10;
     } else if (profile === "female") {
-      for (const h of femaleHints) if (name.includes(h)) score += 12;
-      for (const h of maleHints) if (name.includes(h)) score -= 10;
+      for (const h of femaleHints) if (name.includes(h)) s += 12;
+      for (const h of maleHints) if (name.includes(h)) s -= 10;
     }
-    return score;
+    return s;
   }
 
   function _pickBest(profile) {
-    const voices = _voices();
-    if (!voices.length) return null;
+    const vs = _voices();
+    if (!vs.length) return null;
 
-    const english = voices.filter(v => String(v.lang || "").toLowerCase().startsWith("en"));
-    const pool = english.length ? english : voices;
+    const english = vs.filter(v => String(v.lang || "").toLowerCase().startsWith("en"));
+    const pool = english.length ? english : vs;
 
     let best = pool[0];
-    let bestScore = -1e9;
+    let bestS = -1e9;
 
     for (const v of pool) {
-      const s = _scoreVoice(v, profile);
-      if (s > bestScore) { bestScore = s; best = v; }
+      const sv = _score(v, profile);
+      if (sv > bestS) { bestS = sv; best = v; }
     }
     return best || null;
   }
 
   function _cacheVoices() {
-    const voices = _voices();
-    if (!voices.length) return;
+    const vs = _voices();
+    if (!vs.length) return;
 
     cachedMaleVoice = _pickBest("male");
     cachedFemaleVoice = _pickBest("female");
     cachedAutoVoice = _pickBest("auto");
 
     // Try to separate male/female if they collide and multiple voices exist
-    if (cachedMaleVoice && cachedFemaleVoice && cachedMaleVoice === cachedFemaleVoice && voices.length > 1) {
-      const english = voices.filter(v => String(v.lang || "").toLowerCase().startsWith("en"));
-      const pool = english.length ? english : voices;
+    if (cachedMaleVoice && cachedFemaleVoice && cachedMaleVoice === cachedFemaleVoice && vs.length > 1) {
+      const english = vs.filter(v => String(v.lang || "").toLowerCase().startsWith("en"));
+      const pool = english.length ? english : vs;
       for (const v of pool) {
         if (v !== cachedMaleVoice) { cachedFemaleVoice = v; break; }
       }
@@ -100,9 +106,13 @@ export const tts = (() => {
     boundButton.setAttribute("aria-pressed", enabled ? "true" : "false");
   }
 
-  // iOS: voices async
+  // iOS: voices arrive async; keep cache fresh without touching anything else
   if (window.speechSynthesis) {
-    window.speechSynthesis.onvoiceschanged = () => { _cacheVoices(); };
+    const prev = window.speechSynthesis.onvoiceschanged;
+    window.speechSynthesis.onvoiceschanged = () => {
+      try { if (typeof prev === "function") prev(); } catch (_) {}
+      _cacheVoices();
+    };
     _cacheVoices();
   }
 
@@ -120,17 +130,18 @@ export const tts = (() => {
     const v = _voiceForProfile();
     if (v) u.voice = v;
 
-    // Tuned voices (Adrian not too low)
+    // POV shaping (NOT too low)
     if (voiceProfile === "male") {
-      u.pitch = 0.84;
+      u.pitch = 0.86; // slightly higher than before
       u.rate  = 0.96;
     } else if (voiceProfile === "female") {
-      u.pitch = 1.14;
+      u.pitch = 1.12;
       u.rate  = 1.00;
     } else {
       u.pitch = 1.0;
       u.rate  = 0.98;
     }
+
     u.volume = 1.0;
 
     try { window.speechSynthesis.speak(u); } catch (_) {}
@@ -152,53 +163,33 @@ export const tts = (() => {
     _syncButton();
   }
 
+  function isEnabled() { return enabled; }
+
   function toggle() {
     setEnabled(!enabled);
     return enabled;
   }
 
-  // NEW: Hard teardown for POV switching
-  function reset({ keepEnabled = false } = {}) {
-    // stop audio
-    stop();
+  // IMPORTANT: This matches “known good” expectations:
+  // - binds button
+  // - button click toggles enabled
+  // - calls onEnableSpeak() so voice starts immediately when turned ON
+  function initToggle({ buttonEl, onEnableSpeak } = {}) {
+    if (!buttonEl) return;
 
-    // reset voice caches
-    cachedMaleVoice = null;
-    cachedFemaleVoice = null;
-    cachedAutoVoice = null;
-
-    // optionally reset enabled
-    if (!keepEnabled) enabled = false;
-
-    // unbind toggle
+    // Rebind cleanly every time (prevents stacked listeners across POV switches)
     if (boundAbort) {
       try { boundAbort.abort(); } catch (_) {}
     }
-    boundAbort = null;
-    boundButton = null;
-
-    // re-cache (so next init is fast)
-    _cacheVoices();
-  }
-
-  // NEW: Rebuild toggle binding fresh every time
-  function rebindToggle({ buttonEl, onEnableSpeak } = {}) {
-    // kill old binding if any
-    if (boundAbort) {
-      try { boundAbort.abort(); } catch (_) {}
-    }
-
-    boundButton = buttonEl || null;
     boundAbort = new AbortController();
+    boundButton = buttonEl;
 
     _syncButton();
-
-    if (!boundButton) return;
 
     boundButton.addEventListener("click", () => {
       const nowOn = toggle();
 
-      // iOS prime on user gesture when turning ON
+      // Prime speech pipeline on user gesture (helps iOS)
       if (nowOn) {
         try {
           window.speechSynthesis.cancel();
@@ -217,13 +208,32 @@ export const tts = (() => {
     }, { signal: boundAbort.signal });
   }
 
+  // Optional: call this when leaving story harness to hard stop and unbind toggle
+  function teardown({ keepEnabled = false } = {}) {
+    stop();
+    if (!keepEnabled) enabled = false;
+    if (boundAbort) {
+      try { boundAbort.abort(); } catch (_) {}
+    }
+    boundAbort = null;
+    boundButton = null;
+  }
+
   return {
     speak,
     stop,
+    initToggle,
     setVoiceProfile,
     setEnabled,
+    isEnabled,
     toggle,
-    reset,
-    rebindToggle
+    teardown
   };
-})();
+}
+
+// SINGLETON to prevent “toggle controls the wrong instance”
+const KEY = "__VC_TTS__";
+const instance = (typeof window !== "undefined" && window[KEY]) ? window[KEY] : create_tts();
+if (typeof window !== "undefined") window[KEY] = instance;
+
+export const tts = instance;
