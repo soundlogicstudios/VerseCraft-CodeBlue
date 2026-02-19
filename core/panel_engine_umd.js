@@ -40,9 +40,62 @@
     if(global.VC_TTS) global.VC_TTS.speak(scene && scene.text);
   };
 
+
+  PanelEngine.prototype.loadById = async function(id){
+    this._setStatus("Loading story...");
+    try{
+      // CSP-safe embedded JSON: if code_blue_data.js is present, prefer embedded story text.
+      if(global.VC_GET_STORY_JSON && url){
+        var m = String(url).match(/\/library\/(.+?)\.json/i);
+        if(m && m[1]){
+          var emb = global.VC_GET_STORY_JSON(m[1]);
+          if(emb && emb.start && emb.scenes){
+            this.story = emb;
+            this.sceneId = String(emb.start||'').trim();
+            this._setStatus('');
+            this._render(emb.scenes[this.sceneId] || {text:'[Missing start scene]', options:[]});
+            return true;
+          }
+        }
+      }
+
+      if(global.VC_GET_STORY_JSON){
+        var data = global.VC_GET_STORY_JSON(id);
+        if(data && data.start && data.scenes){
+          this.story = data;
+          this.sceneId = String(data.start||"").trim();
+          this._setStatus("");
+          this._render(data.scenes[this.sceneId] || {text:"[Missing start scene]", options:[]});
+          return true;
+        }
+      }
+      throw new Error("Embedded story not found: " + id);
+    }catch(e){
+      this._setStatus("ERROR: "+(e && e.message ? e.message : "Failed to load story"));
+      this._render({text:"[Story failed to load]\n\n"+(e && e.message ? e.message : ""), options:[]});
+      return false;
+    }
+  };
+
+
   PanelEngine.prototype.load = async function(url){
     this._setStatus("Loading story...");
     try{
+      // CSP-safe embedded JSON: if code_blue_data.js is present, prefer embedded story text.
+      if(global.VC_GET_STORY_JSON && url){
+        var m = String(url).match(/\/library\/(.+?)\.json/i);
+        if(m && m[1]){
+          var emb = global.VC_GET_STORY_JSON(m[1]);
+          if(emb && emb.start && emb.scenes){
+            this.story = emb;
+            this.sceneId = String(emb.start||'').trim();
+            this._setStatus('');
+            this._render(emb.scenes[this.sceneId] || {text:'[Missing start scene]', options:[]});
+            return true;
+          }
+        }
+      }
+
       var res = await fetch(url, {cache:"no-store"});
       if(!res.ok) throw new Error("HTTP "+res.status+" for "+url);
       var data = await res.json();

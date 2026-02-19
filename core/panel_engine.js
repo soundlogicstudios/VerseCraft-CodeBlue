@@ -11,6 +11,23 @@ export class PanelEngine {
   async init(id) {
     const url = `./library/${id}.json`;
     this._setLoading(`Loading: ${url}`);
+
+    // CSP-safe load path (GitHub Pages/iOS): prefer embedded story JSON text if available.
+    if (window.VC_GET_STORY_JSON) {
+      const embedded = window.VC_GET_STORY_JSON(id);
+      if (embedded) {
+        const data = embedded;
+        // Minimal schema validation (additive safety)
+        if (!data.start || !data.scenes || typeof data.scenes !== "object") {
+          throw new Error(`Invalid embedded story JSON (missing start/scenes) for ${id}`);
+        }
+        this.story = data;
+        this.current = String(this.story.start).trim();
+        this.render();
+        return;
+      }
+    }
+
     const res = await fetch(url, { cache: "no-store" });
     if (!res.ok) {
       throw new Error(`Story JSON fetch failed (${res.status}) for ${url}`);
