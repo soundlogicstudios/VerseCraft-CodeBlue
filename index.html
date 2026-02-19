@@ -8,14 +8,13 @@
 </head>
 <body>
 
-<main class="intro-root boot-splash" id="introRoot">
+<main class="intro-root" id="introRoot">
 
-  <!-- SPLASH (ALWAYS FIRST) -->
+  <!-- SPLASH (FIRST SCREEN) -->
   <section class="splash" id="splash" aria-label="Splash Screen">
     <div class="splash-ui">
-      <div class="splash-title">St. Aurelius Hospital</div>
-      <button class="splash-btn" id="enterBtn" type="button">TAP TO ENTER</button>
-      <div class="splash-hint">Tap anywhere to begin</div>
+      <button class="splash-btn" id="enterBtn" type="button">ENTER</button>
+      <div class="splash-hint">Tap to begin</div>
     </div>
   </section>
 
@@ -35,22 +34,22 @@
   <div class="light-overlay" id="lightOverlay"></div>
   <div class="vignette"></div>
 
-  <!-- TITLE CARD (ONLY AFTER SPLASH) -->
-  <div class="title-card" id="titleCard">
+  <!-- TITLE CARD (APPEARS AFTER SPLASH ENTER) -->
+  <div class="title-card" id="titleCard" hidden>
     <div class="title">CODE BLUE</div>
     <div class="subtitle">Season One</div>
     <button id="startBtn" type="button">TAP TO START</button>
   </div>
 
-  <!-- CHARACTER SELECT -->
+  <!-- CHARACTER SELECT (hidden until TITLE CARD tap) -->
   <section class="character-select" id="characterSelect" hidden aria-label="Choose your character">
     <div class="cs-ui">
       <div class="cs-title">Choose Your Character</div>
 
       <!-- Left = Celeste, Right = Adrian -->
       <div class="cs-buttons">
-        <button class="cs-btn left" id="chooseCeleste" type="button">Dr. Celeste Marlowe</button>
-        <button class="cs-btn right" id="chooseAdrian" type="button">Dr. Adrian Cole</button>
+        <button class="cs-btn left"  id="chooseCeleste" type="button">Dr. Celeste Marlowe</button>
+        <button class="cs-btn right" id="chooseAdrian"  type="button">Dr. Adrian Cole</button>
       </div>
 
       <button class="cs-start" id="startShiftBtn" type="button" disabled>Start Shift</button>
@@ -63,9 +62,33 @@
     <source src="./assets/audio/code_blue_theme.mp3" type="audio/mpeg">
   </audio>
 
+
+  <!-- STORY HARNESS (ENGINE TESTBED) -->
+  <section class="story-harness" id="storyHarness" hidden aria-label="Story Screen">
+    <div class="story-ui">
+      <div class="story-topbar">
+        <button class="story-btn" id="btnVoice" aria-pressed="false" type="button">Voice: OFF</button>
+        <button class="story-btn" id="btnExitStory" type="button">Exit</button>
+      </div>
+
+      <div class="story-narrative" id="panelNarrative"></div>
+
+      <div class="story-choices">
+        <button class="choice-pill" id="choice0" type="button"><span></span></button>
+        <button class="choice-pill" id="choice1" type="button"><span></span></button>
+        <button class="choice-pill" id="choice2" type="button"><span></span></button>
+        <button class="choice-pill" id="choice3" type="button"><span></span></button>
+      </div>
+    </div>
+  </section>
+
+
 </main>
 
-<script>
+<script type="module">
+  import { PanelEngine } from "./core/panel_engine.js";
+  import { tts } from "./core/tts.js";
+
 (() => {
   const root = document.getElementById('introRoot');
 
@@ -79,7 +102,6 @@
   const startBtn = document.getElementById('startBtn');
 
   const characterSelect = document.getElementById('characterSelect');
-
   const themeAudio = document.getElementById('themeAudio');
 
   const chooseCeleste = document.getElementById('chooseCeleste');
@@ -89,7 +111,7 @@
 
   const byId = (n) => panels.find(p => p.dataset.panel === String(n));
 
-  // Ambulance flash panels (keep your set + include 1)
+  // Flashing panels (keep your existing + include 1)
   const flashSet = new Set([1, 6, 9]);
 
   // Montage order (unchanged)
@@ -119,7 +141,7 @@
 
   function startLoop() {
     if (timer) clearInterval(timer);
-    timer = setInterval(next, 5000); /* faster cadence */
+    timer = setInterval(next, 8000);
   }
 
   function stopLoop() {
@@ -127,7 +149,7 @@
     timer = null;
   }
 
-  // Boot state: show a single static frame BEHIND splash; no loop; title card hidden by CSS until montage starts
+  // Initial state: show a static first frame behind splash (no loop yet)
   setActive(order[0]);
   stopLoop();
 
@@ -135,44 +157,37 @@
     if (montageStarted) return;
     montageStarted = true;
 
-    // enable montage UI visibility
-    root.classList.remove('boot-splash');
-    root.classList.add('montage-started');
+    // show title card now that the montage is live
+    titleCard.hidden = false;
 
-    // begin slideshow
+    // begin montage
     startLoop();
 
-    // start music (this is called from user tap)
+    // start theme music (allowed because user clicked)
     try {
       themeAudio.volume = 0.85;
       await themeAudio.play();
     } catch (_) {}
   }
 
-  function dismissSplash() {
-    if (splash.classList.contains('fade-out')) return;
+  // SPLASH ENTER -> start music + slideshow + reveal title card
+  enterBtn.addEventListener('click', async () => {
+    await startMontageAndMusic();
+
+    // fade splash out and remove it
     splash.classList.add('fade-out');
-    setTimeout(() => { splash.hidden = true; }, 420);
-  }
-
-  // Tap anywhere on splash OR button to enter
-  splash.addEventListener('click', async () => {
-    await startMontageAndMusic();
-    dismissSplash();
+    setTimeout(() => {
+      splash.hidden = true;
+    }, 450);
   });
 
-  enterBtn.addEventListener('click', async (e) => {
-    e.stopPropagation();
-    await startMontageAndMusic();
-    dismissSplash();
-  });
-
-  // Title card tap -> character select
+  // TITLE CARD TAP -> go to character select (do not restart music/montage)
   startBtn.addEventListener('click', () => {
     stopLoop();
     titleCard.classList.add('fade-out');
     root.classList.add('show-character-select');
 
+    // show character select
     setTimeout(() => {
       characterSelect.hidden = false;
       characterSelect.classList.add('show');
@@ -193,9 +208,43 @@
   chooseCeleste.addEventListener('click', () => setSelected('celeste'));
   chooseAdrian.addEventListener('click', () => setSelected('adrian'));
 
-  startShiftBtn.addEventListener('click', () => {
+  // Stub hook for now
+  startShiftBtn.addEventListener('click', async () => {
     if (!selected) return;
-    alert(`Start Shift (stub) — POV: ${selected}`);
+
+    // Show story harness and start the engine using Code Blue JSON
+    const harness = document.getElementById('storyHarness');
+    harness.hidden = false;
+    harness.classList.add('show');
+
+    // Init engine (reads ./library/code_blue.json)
+    const engine = new PanelEngine({
+      narrativeEl: document.getElementById('panelNarrative'),
+      choiceButtons: [
+        document.getElementById('choice0'),
+        document.getElementById('choice1'),
+        document.getElementById('choice2'),
+        document.getElementById('choice3'),
+      ]
+    });
+
+    await engine.init('code_blue');
+
+    // TTS toggle for story harness
+    tts.initToggle({
+      buttonEl: document.getElementById('btnVoice'),
+      onEnableSpeak: () => {
+        const node = engine.story?.scenes?.[engine.current];
+        if (node?.text) tts.speak(node.text);
+      }
+    });
+
+    // Exit button: stop speech and hide harness
+    document.getElementById('btnExitStory').onclick = () => {
+      tts.stop();
+      harness.classList.remove('show');
+      setTimeout(() => { harness.hidden = true; }, 250);
+    };
   });
 })();
 </script>
