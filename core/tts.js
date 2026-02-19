@@ -1,137 +1,143 @@
-// tts.js — optional Text-to-Speech helper (additive module)
-// Uses the browser Web Speech API (speechSynthesis). No keys required.
-// Designed to be "opt-in": user must click the toggle button once (iOS gesture unlock).
+// Browser TTS helper for VerseCraft testbed (GitHub Pages safe).
+// NOTE: Browsers do not expose a true "male/female" voice flag.
+// We choose best-effort voices via language + name heuristics.
 
 export const tts = (() => {
   let enabled = false;
-  let unlocked = false;
+  let voiceProfile = "male"; // 'male' | 'female' | 'auto'
+  let currentUtterance = null;
 
-  function extractNarrative(rawText) {
-    // Strip printed CHOICES section if present
-    if (!rawText) return "";
-    let text = String(rawText);
+  const maleHints = [
+    "daniel","david","alex","fred","george","tom","thomas","mark","paul","john","james",
+    "matt","matthew","ryan","michael","ben","brian","bruce","kevin","sam","steve",
+    "male","man","guy"
+  ];
 
-    // Cut at delimiter line if present
-    text = text.split("----------------")[0];
+  const femaleHints = [
+    "samantha","victoria","karen","susan","linda","mary","emma","olivia","sara","sarah",
+    "jenny","jennifer","allison","amy","female","woman","girl"
+  ];
 
-    // Also cut at a CHOICES header if present (case-insensitive)
-    const m = text.match(/\n\s*CHOICES\b/i);
-    if (m && typeof m.index === "number") text = text.slice(0, m.index);
+  function _voices() {
+    try { return window.speechSynthesis.getVoices() || []; }
+    catch { return []; }
+  }
 
-    return String(text).trim();
+  function _scoreVoice(v) {
+    const name = String(v?.name || "").toLowerCase();
+    const lang = String(v?.lang || "").toLowerCase();
+
+    // Prefer English (adjust if you want other languages)
+    let score = 0;
+    if (lang.startsWith("en")) score += 50;
+    if (lang === "en-us") score += 8;
+
+    // De-prioritize novelty voices that can be harsh
+    if (name.includes("whisper")) score -= 10;
+
+    // Profile bias
+    if (voiceProfile === "male") {
+      for (const h of maleHints) if (name.includes(h)) score += 12;
+      for (const h of femaleHints) if (name.includes(h)) score -= 10;
+    } else if (voiceProfile === "female") {
+      for (const h of femaleHints) if (name.includes(h)) score += 12;
+      for (const h of maleHints) if (name.includes(h)) score -= 10;
+    }
+
+    return score;
+  }
+
+  function _pickVoice() {
+    const voices = _voices();
+    if (!voices.length) return null;
+
+    // filter to English first if possible
+    const english = voices.filter(v => String(v.lang || "").toLowerCase().startsWith("en"));
+    const pool = english.length ? english : voices;
+
+    let best = pool[0];
+    let bestScore = -1e9;
+    for (const v of pool) {
+      const s = _scoreVoice(v);
+      if (s > bestScore) { bestScore = s; best = v; }
+    }
+    return best;
+  }
+
+  function _extractNarrative(raw) {
+    const txt = String(raw || "");
+    if (!txt) return "";
+    // Prefer to cut at delimiter or CHOICES header (for printed format)
+    const cut1 = txt.split("----------------")[0];
+    const cut2 = cut1.split("\nCHOICES\n")[0];
+    return cut2.trim();
+  }
+
+  function speak(rawText) {
+    if (!enabled) return;
+    const text = _extractNarrative(rawText);
+    if (!text) return;
+
+    stop();
+
+    const u = new SpeechSynthesisUtterance(text);
+    u.rate = 0.98;
+    u.pitch = (voiceProfile === "male") ? 0.92 : (voiceProfile === "female" ? 1.05 : 1.0);
+    u.volume = 1.0;
+
+    const v = _pickVoice();
+    if (v) u.voice = v;
+
+    currentUtterance = u;
+    try { window.speechSynthesis.speak(u); } catch (_) {}
   }
 
   function stop() {
     try { window.speechSynthesis.cancel(); } catch (_) {}
+    currentUtterance = null;
   }
 
-  function pickVoice() {
-    try {
-      const voices = window.speechSynthesis.getVoices() || [];
-      if (!voices.length) return null;
-
-      // Prefer English voices
-      const english = voices.filter(v => /en/i.test(String(v.lang || "")));
-      const pool = english.length ? english : voices;
-
-      // "Male-preferred" heuristic: browsers don't expose gender, so we guess by name.
-      // We prefer voices whose names commonly map to male voices and avoid obvious female names.
-      const maleHints = [
-        "David","Mark","Alex","Daniel","Paul","Fred","George","John","James",
-        "Thomas","Michael","Andrew","Ryan","Aaron","Arthur","Brian","Bruce",
-        "Eddy","Ethan","Jack","Oliver","Liam","William"
-      ];
-      const femaleHints = ["Samantha","Victoria","Karen","Tessa","Fiona","Moira","Serena","Ava","Emily","Susan"];
-
-      function score(v) {
-        const name = String(v.name || "");
-        const lang = String(v.lang || "");
-        let s = 0;
-        if (lang === "en-US") s += 6;
-        else if (/en-US/i.test(lang)) s += 5;
-        else if (/en/i.test(lang)) s += 3;
-
-        for (const h of maleHints) if (name.includes(h)) s += 4;
-        for (const h of femaleHints) if (name.includes(h)) s -= 6;
-
-        // Slight preference for "Enhanced"/"Premium"/"Natural" voices if present
-        if (/enhanced|premium|natural/i.test(name)) s += 1;
-
-        return s;
-      }
-
-      return pool.slice().sort((a,b) => score(b) - score(a))[0] || null;
-    } catch (_) {
-      return null;
-    }
+  function setVoiceProfile(profile) {
+    const p = String(profile || "").toLowerCase();
+    if (p === "male" || p === "female" || p === "auto") voiceProfile = p;
   }
 
-  function speak(rawText, opts = {}) {
-    if (!enabled) return;
-    const text = extractNarrative(rawText);
-    if (!text) return;
+  function getVoiceProfile() { return voiceProfile; }
 
-    // Cancel any in-progress narration
-    stop();
-
-    try {
-      const u = new SpeechSynthesisUtterance(text);
-      u.rate = typeof opts.rate === "number" ? opts.rate : 0.98;
-      u.pitch = typeof opts.pitch === "number" ? opts.pitch : 0.95;
-      u.volume = typeof opts.volume === "number" ? opts.volume : 1.0;
-
-      const v = pickVoice();
-      if (v) u.voice = v;
-
-      window.speechSynthesis.speak(u);
-    } catch (_) {}
-  }
-
-  function setEnabled(next) {
-    enabled = !!next;
-  }
-
-  function isEnabled() {
-    return enabled;
+  function setEnabled(on) {
+    enabled = !!on;
+    if (!enabled) stop();
   }
 
   function initToggle({ buttonEl, onEnableSpeak } = {}) {
     if (!buttonEl) return;
 
-    // iOS/Safari: voices list can be async
-    try {
-      window.speechSynthesis.onvoiceschanged = () => {
-        try { window.speechSynthesis.getVoices(); } catch (_) {}
-      };
-    } catch (_) {}
-
-    const render = () => {
-      buttonEl.textContent = enabled ? "Voice: ON" : "Voice: OFF";
+    const sync = () => {
+      buttonEl.textContent = `Voice: ${enabled ? "ON" : "OFF"}`;
       buttonEl.setAttribute("aria-pressed", enabled ? "true" : "false");
     };
 
-    render();
-
     buttonEl.addEventListener("click", () => {
-      // This click counts as a gesture unlock for iOS
-      unlocked = true;
       enabled = !enabled;
-      if (!enabled) {
-        stop();
-      } else {
-        // Speak current scene immediately if caller provides hook
-        if (typeof onEnableSpeak === "function") onEnableSpeak();
-      }
-      render();
+      sync();
+      if (enabled && typeof onEnableSpeak === "function") onEnableSpeak();
+      if (!enabled) stop();
     });
+
+    sync();
+
+    // Some browsers load voices async
+    if (typeof window !== "undefined" && window.speechSynthesis) {
+      window.speechSynthesis.onvoiceschanged = () => { _voices(); };
+    }
   }
 
   return {
-    initToggle,
     speak,
     stop,
-    setEnabled,
-    isEnabled,
-    extractNarrative,
+    initToggle,
+    setVoiceProfile,
+    getVoiceProfile,
+    setEnabled
   };
 })();
