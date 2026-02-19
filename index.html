@@ -86,6 +86,9 @@
 
 </main>
 
+
+  <script src="./core/tts_umd.js"></script>
+  <script src="./core/panel_engine_umd.js"></script>
 <script type="module">
   import { PanelEngine } from "./core/panel_engine.js";
   import { tts } from "./core/tts.js";
@@ -350,10 +353,67 @@ window.__vc_initialized = true;
     if (splash) splash.onclick = enter;
 
     if (startBtn) startBtn.onclick = function() {
-      // This fallback stops at title card (character select requires module runtime).
+      // Fallback: show character select even if module failed.
+      var cs = document.getElementById('characterSelect');
+      var root = document.getElementById('introRoot');
+      if (root) root.classList.add('show-character-select');
+      if (cs) { cs.hidden = false; cs.classList.add('show'); }
       stopLoop();
       if (titleCard) titleCard.classList.add('fade-out');
     };
+
+    // Wire character selection + Start Shift in fallback
+    var chooseAdrian = document.getElementById('chooseAdrian');
+    var chooseCeleste = document.getElementById('chooseCeleste');
+    var startShiftBtn = document.getElementById('startShiftBtn');
+    var csNote = document.getElementById('csNote');
+    var pov = null;
+    function setPOV(w){
+      pov = w;
+      if (chooseAdrian) chooseAdrian.classList.toggle('active', w==='adrian');
+      if (chooseCeleste) chooseCeleste.classList.toggle('active', w==='celeste');
+      if (startShiftBtn) startShiftBtn.disabled = !pov;
+      if (csNote) csNote.textContent = pov ? ('Selected: ' + (pov==='adrian'?'Dr. Adrian Cole':'Dr. Celeste Marlowe')) : 'Select a character to begin.';
+      if (window.VC_TTS) window.VC_TTS.setVoiceProfile(pov==='celeste' ? 'female' : 'male');
+    }
+    if (chooseAdrian) chooseAdrian.onclick = function(){ setPOV('adrian'); };
+    if (chooseCeleste) chooseCeleste.onclick = function(){ setPOV('celeste'); };
+
+    function showHarness(){
+      var h = document.getElementById('storyHarness');
+      var bg = document.getElementById('storyBg');
+      if (bg) bg.style.backgroundImage = "url('./assets/backgrounds/ui/codeblue-narrative-panel.webp')";
+      if (h) { h.hidden = false; h.classList.add('show'); }
+    }
+
+    var btnTTS = document.getElementById('btnTTS');
+    if (btnTTS && window.VC_TTS){
+      btnTTS.onclick = function(){
+        window.VC_TTS.toggle(!window.VC_TTS.enabled);
+        btnTTS.textContent = 'VOICE: ' + (window.VC_TTS.enabled ? 'ON' : 'OFF');
+      };
+    }
+
+    var btnExit = document.getElementById('btnExitStory');
+    if (btnExit){
+      btnExit.onclick = function(){
+        var h = document.getElementById('storyHarness');
+        if (h) { h.hidden = true; h.classList.remove('show'); }
+      };
+    }
+
+    var engine = null;
+    if (startShiftBtn){
+      startShiftBtn.onclick = function(){
+        if (!pov) return;
+        showHarness();
+        engine = new window.VC_PanelEngine({ textId:'storyText', choicesId:'storyChoices', statusId:'storyStatus' });
+        var url = "./library/" + (pov==='celeste' ? "code_blue_celeste.json" : "code_blue_adrian.json");
+        engine.load(url).then(function(ok){
+          if(!ok) engine.load("./library/code_blue.json");
+        });
+      };
+    }
   }, 600);
 })();
 </script>
