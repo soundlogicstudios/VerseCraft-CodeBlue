@@ -3,7 +3,9 @@
 // Fixes:
 // 1) Singleton: prevents "two TTS instances" (toggle stops the wrong one) after character switching.
 // 2) Safe toggle binding: no duplicated listeners, always syncs button state.
-// 3) Strong but not cartoonish POV shaping: Adrian deeper, Celeste brighter (deterministic even with one voice).
+// 3) POV shaping: Adrian deeper (but not too low), Celeste brighter.
+// 4) NEW: If VOICE is toggled ON, it immediately speaks the most recent scene text
+//        (so narration does NOT wait for the first choice).
 
 function create_tts_singleton() {
   let enabled = false;
@@ -12,6 +14,9 @@ function create_tts_singleton() {
   let cachedMaleVoice = null;
   let cachedFemaleVoice = null;
   let cachedAutoVoice = null;
+
+  // Remember the last narrative text requested (even if VOICE was OFF).
+  let lastNarrativeText = "";
 
   // Track any toggle buttons we bind so state stays consistent.
   const boundButtons = new Set();
@@ -115,9 +120,11 @@ function create_tts_singleton() {
   }
 
   function speak(rawText) {
-    if (!enabled) return;
-
+    // Always capture last narrative text, even if VOICE is OFF right now.
     const text = _extractNarrative(rawText);
+    if (text) lastNarrativeText = text;
+
+    if (!enabled) return;
     if (!text) return;
 
     stop();
@@ -130,11 +137,9 @@ function create_tts_singleton() {
     const v = _voiceForProfile();
     if (v) u.voice = v;
 
-    // ✅ POV shaping (adjusted: Adrian less “too low”)
-    // Adrian: deeper but not comical
-    // Celeste: brighter but not chipmunk
+    // ✅ POV shaping (Adrian pitch raised)
     if (voiceProfile === "male") {
-      u.pitch = 0.78;  // was ~0.62; brought up
+      u.pitch = 0.86;  // raised from 0.78
       u.rate  = 0.96;
     } else if (voiceProfile === "female") {
       u.pitch = 1.14;
@@ -158,7 +163,6 @@ function create_tts_singleton() {
     if (p === "male" || p === "female" || p === "auto") voiceProfile = p;
 
     // IMPORTANT: do NOT auto-play on profile switch.
-    // (Switching characters will speak when the engine calls speak() on scene render.)
     _cacheVoices();
   }
 
@@ -166,8 +170,25 @@ function create_tts_singleton() {
 
   function setEnabled(on) {
     enabled = !!on;
-    if (!enabled) stop();
+
+    if (!enabled) {
+      stop();
+      _syncButtons();
+      return;
+    }
+
     _syncButtons();
+
+    // ✅ NEW: when enabling voice, immediately speak the last known narrative text.
+    // This removes the “wait until first choice” problem.
+    if (lastNarrativeText) {
+      // Slight delay helps iOS after prime
+      setTimeout(() => {
+        // Re-speak using the cached text
+        // (call speak so it uses current profile shaping)
+        speak(lastNarrativeText);
+      }, 60);
+    }
   }
 
   function isEnabled() { return enabled; }
@@ -192,8 +213,9 @@ function create_tts_singleton() {
     _syncButtons();
 
     buttonEl.addEventListener("click", () => {
-      // User gesture: prime iOS speech pipeline when turning ON
       const nowOn = toggle();
+
+      // User gesture: prime iOS speech pipeline when turning ON
       if (nowOn) {
         try {
           window.speechSynthesis.cancel();
@@ -203,6 +225,7 @@ function create_tts_singleton() {
           window.speechSynthesis.cancel();
         } catch (_) {}
       }
+      // NOTE: setEnabled(true) will immediately speak lastNarrativeText if available.
     }, { signal: ac.signal });
   }
 
